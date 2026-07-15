@@ -22,6 +22,12 @@ src/sidecar/latency_log.jsonl
 *.log
 *.log.err
 
+# Pre-built binaries (downloaded via setup.ps1)
+inkvoice-sidecar.exe
+src/sidecar/dist/
+src/sidecar/build/
+src/sidecar/*.spec
+
 # Windows filesystem artifact
 nul
 

@@ -24,7 +24,13 @@ import json
 import re
 from pathlib import Path
 
-DEFAULT_DICT_PATH = Path(__file__).resolve().parent / "personal_dictionary.json"
+def _sidecar_dir() -> Path:
+    import sys
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent / "src" / "sidecar"
+    return Path(__file__).resolve().parent
+
+DEFAULT_DICT_PATH = _sidecar_dir() / "personal_dictionary.json"
 SIMILARITY_THRESHOLD = 0.6  # difflib ratio; tuned against the false-positive
                              # risk of "correcting" an unrelated real word
 

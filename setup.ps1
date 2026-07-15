@@ -22,6 +22,19 @@ if (Test-Path "$modelDir\encoder.int8.onnx") {
     Write-Host "Model downloaded to $modelDir"
 }
 
+# Download pre-built sidecar exe (no Python/pip needed)
+$sidecarExe = "$PSScriptRoot\inkvoice-sidecar.exe"
+if (-not (Test-Path $sidecarExe)) {
+    Write-Host "Downloading inkvoice-sidecar.exe from GitHub release..."
+    gh release download v0.1.0 `
+        --repo Prab81/inkvoice `
+        --pattern "inkvoice-sidecar.exe" `
+        --dir $PSScriptRoot
+    Write-Host "inkvoice-sidecar.exe downloaded."
+} else {
+    Write-Host "inkvoice-sidecar.exe already present — skipping."
+}
+
 # Copy personal dictionary template if not already present
 $dictDest = "$PSScriptRoot\src\sidecar\personal_dictionary.json"
 $dictSrc  = "$PSScriptRoot\src\sidecar\personal_dictionary.json.example"
@@ -31,7 +44,8 @@ if (-not (Test-Path $dictDest)) {
 }
 
 Write-Host ""
-Write-Host "Setup complete. Next steps:"
-Write-Host "  1. cd src\sidecar && pip install -r requirements.txt"
-Write-Host "  2. cd src\shell   && cargo build --release"
-Write-Host "  3. Run: src\shell\target\release\inkvoice-shell.exe"
+Write-Host "Setup complete. To run InkVoice:"
+Write-Host "  1. Start sidecar:  .\inkvoice-sidecar.exe"
+Write-Host "  2. Start shell:    src\shell\target\release\inkvoice-shell.exe"
+Write-Host ""
+Write-Host "  (Or build the shell from source: cd src\shell && cargo build --release)"

@@ -31,7 +31,13 @@ from pathlib import Path
 
 DASH_HOST, DASH_PORT = "127.0.0.1", 43918
 
-_HERE = Path(__file__).resolve().parent
+def _sidecar_dir() -> Path:
+    import sys
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent / "src" / "sidecar"
+    return Path(__file__).resolve().parent
+
+_HERE = _sidecar_dir()
 HISTORY_PATH = _HERE / "history.jsonl"
 LATENCY_PATH = _HERE / "latency_log.jsonl"
 DICT_PATH = _HERE / "personal_dictionary.json"

@@ -84,13 +84,22 @@ CHUNK_HARD_MAX_S = 19.0
 SILENCE_TAIL_S = 0.3
 SILENCE_RMS_THRESHOLD = 0.015
 
+def _repo_root() -> Path:
+    # When frozen by PyInstaller, __file__ is inside a temp extraction dir.
+    # Use the exe's own directory as the anchor instead; fall back to the
+    # source-tree layout (parents[2] of this .py file) for dev runs.
+    import sys
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[2]
+
+_ROOT = _repo_root()
+
 DEFAULT_OFFLINE_MODEL_DIR = (
-    Path(__file__).resolve().parents[2]
-    / "spikes" / "m0_asr" / "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8"
+    _ROOT / "spikes" / "m0_asr" / "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8"
 )
 DEFAULT_STREAMING_MODEL_DIR = (
-    Path(__file__).resolve().parents[2]
-    / "spikes" / "streaming_zipformer" / "sherpa-onnx-streaming-zipformer-en-2023-06-21"
+    _ROOT / "spikes" / "streaming_zipformer" / "sherpa-onnx-streaming-zipformer-en-2023-06-21"
 )
 # Chose the 2023-06-21 variant (LibriSpeech+GigaSpeech) over 2023-06-26
 # (LibriSpeech only): head-to-head on our own accent/jargon test set and a
@@ -105,7 +114,7 @@ DEFAULT_STREAMING_MODEL_DIR = (
 # utterance is now dumped to disk (audio + both transcript stages) so a
 # future weird output can actually be reproduced and debugged, not just
 # guessed at. Capped and rotated since this runs unattended.
-DEBUG_AUDIO_DIR = Path(__file__).resolve().parent / "debug_audio"
+DEBUG_AUDIO_DIR = _ROOT / "src" / "sidecar" / "debug_audio"
 DEBUG_AUDIO_MAX_FILES = 40
 
 # STORY-002 AC3: latency has been measured extensively via ad-hoc spikes
@@ -114,13 +123,13 @@ DEBUG_AUDIO_MAX_FILES = 40
 # Deliberately not capped/rotated like debug_audio: these lines are tiny
 # (no audio payload, just a handful of numbers), so unlike raw WAV dumps
 # there's no meaningful disk-growth concern to guard against yet.
-LATENCY_LOG_PATH = Path(__file__).resolve().parent / "latency_log.jsonl"
+LATENCY_LOG_PATH = _ROOT / "src" / "sidecar" / "latency_log.jsonl"
 
 # STORY-014: durable dictation history (text only — the rotating debug_audio
 # dump already covers audio for debugging). One JSON line per finalized
 # utterance with both transcript stages, so the dashboard can show a
 # raw-vs-cleaned diff and offer copy-raw revert long after the utterance.
-HISTORY_PATH = Path(__file__).resolve().parent / "history.jsonl"
+HISTORY_PATH = _ROOT / "src" / "sidecar" / "history.jsonl"
 
 
 def _append_jsonl(path: Path, entry: dict, label: str) -> None:
