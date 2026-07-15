@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>InkVoice</title>
+<style>
+  :root {
+    --cream: #f5f0e3; --cream-dark: #ece5d3; --ink: #232120; --ink-soft: #5f5b54;
+    --ink-faint: #635e54; --card: #fffdf8; --line: #e2dbc9;
+    --indigo: #4c40b9; --green: #3b6d11; --red: #a32d2d;
+    --diff-del-bg: #f7d4d4; --diff-ins-bg: #d9ecc2;
+    /* Indigo has three distinct jobs, each its own token so contrast can be
+       tuned per role rather than reusing one value for everything:
+       --indigo (accent text/border/focus), --indigo-fill (solid CTA/hero
+       backgrounds, always pairs with --on-indigo-fill*), --indigo-bg (pale
+       tint for the "edited by cleanup" info badge, pairs with --indigo). */
+    --indigo-fill: #4c40b9; --indigo-glow: rgba(76, 64, 185, 0.18);
+    --indigo-bg: #ece9fa; --on-indigo-fill: #fff; --on-indigo-fill-soft: #d8d4f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --cream: #1c1a17; --cream-dark: #26241f; --ink: #f3efe6; --ink-soft: #c9c4b8;
+      --ink-faint: #a39d90; --card: #211f1b; --line: #3a362e;
+      --indigo: #9d94e6; --green: #7cbf4a; --red: #e08787;
+      --diff-del-bg: rgba(163, 45, 45, 0.28); --diff-ins-bg: rgba(59, 109, 17, 0.3);
+      /* --indigo-fill stays the same deep shade in both modes — its only
+         job is pairing with white-ish text, which it already does at
+         7.7:1; --indigo itself brightens instead, since that copy sits
+         directly on the page/card background and needs to pop against a
+         dark surface. */
+      --indigo-glow: rgba(157, 148, 230, 0.22); --indigo-bg: #2c2846;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif; background: var(--cream);
+    color: var(--ink); padding: 32px 40px 80px; max-width: 1080px; margin: 0 auto;
+  }
+  h1 { font-size: 36px; font-weight: 600; letter-spacing: -0.8px; }
+  h1 span { color: var(--indigo); }
+  .sub { color: var(--ink-faint); font-size: 14px; margin: 6px 0 36px; }
+  h2 { font-size: 19px; font-weight: 600; letter-spacing: -0.2px; margin: 32px 0 14px; }
+  /* History is the page's primary destination; the dictionary above it is a
+     supporting utility. Asymmetric spacing says so before either section's
+     content does — the point of hierarchy isn't scale alone. */
+  h2.primary { margin-top: 44px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .stat .label { font-size: 12px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.6px; }
+  .stat .value { font-size: 26px; font-weight: 600; margin-top: 6px; }
+  .stat .value small { font-size: 13px; font-weight: 400; color: var(--ink-faint); }
+  /* The one stat worth calling out: words-per-minute is the number a user
+     actually shares/cares about (see PRD's Insights-panel note). It carries
+     the page's single "committed" surface AND a larger number — hierarchy
+     through scale and color together, not color doing all the work while
+     every value sits at the same size. */
+  .stat.hero { background: var(--indigo-fill); border-color: var(--indigo-fill); grid-column: span 2; }
+  .stat.hero .label, .stat.hero .value small { color: var(--on-indigo-fill-soft); }
+  .stat.hero .value { color: var(--on-indigo-fill); font-size: 38px; }
+  .stat.hero .value.pulse { animation: pulse-value 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes pulse-value { 0% { transform: scale(1); } 30% { transform: scale(1.06); } 100% { transform: scale(1); } }
+  @media (prefers-reduced-motion: reduce) { .stat.hero .value.pulse { animation: none; } }
+
+  .dict { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+  .dict-row { display: flex; gap: 10px; margin-bottom: 14px; }
+  .dict-row input {
+    flex: 1; padding: 9px 14px; border: 1px solid var(--line); border-radius: 10px;
+    font-size: 14px; background: var(--cream); outline: none;
+  }
+  .dict-row input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px var(--indigo-glow); }
+  .dict-row input::placeholder, .search::placeholder { color: var(--ink-faint); opacity: 1; }
+  button {
+    padding: 9px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--ink);
+    color: var(--cream); font-size: 13px; cursor: pointer;
+  }
+  button.ghost { background: transparent; color: var(--ink-soft); }
+  /* The page's one primary action — everything else (history-row actions,
+     chip removal) is secondary/tertiary and stays neutral. */
+  button.primary { background: var(--indigo-fill); border-color: var(--indigo-fill); color: var(--on-indigo-fill); font-weight: 600; }
+  button:hover { opacity: 0.85; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px; background: var(--cream-dark);
+    border: 1px solid var(--line); border-radius: 999px; padding: 5px 8px 5px 14px; font-size: 13px;
+  }
+  .chip b { font-weight: 600; }
+  .chip button { position: relative; padding: 0 7px; border-radius: 999px; background: transparent; color: var(--ink-faint); border: none; font-size: 15px; }
+  .chip button::after { content: ""; position: absolute; inset: -9px; } /* expands the tap target to ~24px+ without growing the visible pill */
+  .chip button:hover { color: var(--red); }
+  .empty { color: var(--ink-faint); font-size: 13px; }
+
+  .search { width: 100%; padding: 10px 16px; border: 1px solid var(--line); border-radius: 12px; font-size: 14px; background: var(--card); outline: none; margin-bottom: 14px; }
+  .search:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px var(--indigo-glow); }
+  .day { font-size: 13px; font-weight: 600; color: var(--ink-faint); margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.6px; }
+  .item { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; margin-bottom: 10px; }
+  .item .meta { display: flex; gap: 14px; align-items: center; font-size: 12px; color: var(--ink-faint); margin-bottom: 6px; }
+  .item .meta .edited {
+    background: var(--indigo-bg); color: var(--indigo); font-weight: 600; padding: 2px 8px;
+    border-radius: 5px; letter-spacing: 0.2px;
+  }
+  .item .text { font-size: 15px; line-height: 1.55; }
+  .item .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .item .actions button { font-size: 12px; padding: 8px 14px; }
+  .diff { margin-top: 10px; padding: 12px 14px; background: var(--cream); border-radius: 10px; font-size: 14px; line-height: 1.6; display: none; }
+  .diff.open { display: block; }
+  .diff .lbl { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
+  del { background: var(--diff-del-bg); color: var(--red); text-decoration: line-through; border-radius: 3px; padding: 0 2px; }
+  ins { background: var(--diff-ins-bg); color: var(--green); text-decoration: none; border-radius: 3px; padding: 0 2px; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: var(--cream); padding: 10px 22px; border-radius: 999px;
+    font-size: 13px; opacity: 0; transition: opacity 0.25s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<h1>Ink<span>Voice</span></h1>
+<p class="sub">Everything here stays on this machine.</p>
+
+<div class="stats" id="stats"></div>
+
+<h2>Personal dictionary</h2>
+<div class="dict">
+  <div class="dict-row">
+    <input id="term-input" aria-label="Add a dictionary term" placeholder="Add a name, acronym, or jargon term — applies from your next dictation" />
+    <button class="primary" onclick="addTerm()">Add term</button>
+  </div>
+  <div class="chips" id="chips"></div>
+</div>
+
+<h2 class="primary">History</h2>
+<input class="search" id="search" aria-label="Search dictations" placeholder="Search your dictations…" oninput="renderHistory()" />
+<div id="history"></div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+let HISTORY = [], TERMS = [];
+const openDiffs = new Set(); // ts of history items with "Show changes" expanded — survives the 15s poll re-render
+let lastWpmDisplay = null; // drives the hero stat's pulse — a moment of emphasis tied to real data change, not decoration
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function wordDiff(raw, cleaned) {
+  const a = raw.split(/\s+/).filter(Boolean), b = cleaned.split(/\s+/).filter(Boolean);
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m + 1}, () => new Array(n + 1).fill(0));
+  for (let i = m - 1; i >= 0; i--)
+    for (let j = n - 1; j >= 0; j--)
+      dp[i][j] = a[i].toLowerCase() === b[j].toLowerCase()
+        ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1]);
+  const out = [];
+  let i = 0, j = 0;
+  while (i < m && j < n) {
+    if (a[i].toLowerCase() === b[j].toLowerCase()) { out.push(esc(b[j])); i++; j++; }
+    else if (dp[i+1][j] >= dp[i][j+1]) { out.push("<del>" + esc(a[i]) + "</del>"); i++; }
+    else { out.push("<ins>" + esc(b[j]) + "</ins>"); j++; }
+  }
+  while (i < m) out.push("<del>" + esc(a[i++]) + "</del>");
+  while (j < n) out.push("<ins>" + esc(b[j++]) + "</ins>");
+  return out.join(" ");
+}
+
+async function copyText(text, label) {
+  try { await navigator.clipboard.writeText(text); toast(label + " copied to clipboard"); }
+  catch { toast("Copy failed — select and copy manually"); }
+}
+
+function fmtDay(ts) {
+  const d = new Date(ts * 1000), today = new Date();
+  const y = new Date(); y.setDate(today.getDate() - 1);
+  const same = (a, b) => a.toDateString() === b.toDateString();
+  if (same(d, today)) return "Today";
+  if (same(d, y)) return "Yesterday";
+  return d.toLocaleDateString(undefined, {weekday: "short", day: "numeric", month: "short", year: "numeric"});
+}
+
+function fmtTime(ts) {
+  return new Date(ts * 1000).toLocaleTimeString(undefined, {hour: "2-digit", minute: "2-digit"});
+}
+
+function renderStats(latency, stats) {
+  const fin = latency.map(l => l.finalize_ms).filter(v => v != null).sort((x, y) => x - y);
+  const p = (arr, q) => arr.length ? Math.round(arr[Math.min(arr.length - 1, Math.floor(arr.length * q))]) : null;
+  const wpmValue = stats.wpm || "–";
+  const wpmChanged = lastWpmDisplay !== null && lastWpmDisplay !== wpmValue;
+  lastWpmDisplay = wpmValue;
+  const cards = [
+    ["Dictations", (stats.dictations || 0).toLocaleString(), "lifetime"],
+    ["Words dictated", (stats.words || 0).toLocaleString(), "lifetime"],
+    ["Speaking time", ((stats.audio_s || 0) / 60).toFixed(1), "min lifetime"],
+    ["Words per minute", wpmValue, "lifetime avg", true],
+    ["Finalize P50", p(fin, 0.5) ?? "–", "ms"],
+    ["Finalize P99", p(fin, 0.99) ?? "–", "ms"],
+    ["Dictionary terms", TERMS.length, ""],
+  ];
+  document.getElementById("stats").innerHTML = cards.map(([l, v, u, hero]) =>
+    `<div class="stat${hero ? " hero" : ""}"><div class="label">${l}</div><div class="value${hero && wpmChanged ? " pulse" : ""}">${v} <small>${u}</small></div></div>`
+  ).join("");
+}
+
+function renderChips() {
+  const el = document.getElementById("chips");
+  el.innerHTML = TERMS.length
+    ? TERMS.map(t => `<span class="chip"><b>${esc(t)}</b><button aria-label="Remove ${esc(t)}" onclick="removeTerm('${esc(t).replace(/'/g, "\\'")}')">×</button></span>`).join("")
+    : `<span class="empty">No terms yet. Add names or jargon the transcriber gets wrong — corrections apply from your very next dictation.</span>`;
+}
+
+function renderHistory() {
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const el = document.getElementById("history");
+  const items = HISTORY.filter(h =>
+    !q || (h.cleaned || "").toLowerCase().includes(q) || (h.raw || "").toLowerCase().includes(q));
+  if (!items.length) {
+    el.innerHTML = `<p class="empty">${q ? "No dictations match that search." : "No dictations yet — history appears here after your next dictation."}</p>`;
+    return;
+  }
+  let html = "", lastDay = "";
+  items.forEach((h, idx) => {
+    const day = fmtDay(h.ts);
+    if (day !== lastDay) { html += `<div class="day">${day}</div>`; lastDay = day; }
+    const changed = (h.raw || "").trim() !== (h.cleaned || "").trim();
+    const isOpen = openDiffs.has(h.ts);
+    html += `<div class="item">
+      <div class="meta"><span>${fmtTime(h.ts)}</span><span>${(h.audio_s || 0).toFixed(1)}s</span>${changed ? '<span class="edited">Edited</span>' : ""}</div>
+      <div class="text">${esc(h.cleaned || h.raw || "")}</div>
+      <div class="actions">
+        <button class="ghost" onclick="copyText(HISTORY_BY_ID[${idx}].cleaned, 'Cleaned text')">Copy</button>
+        <button class="ghost" onclick="copyText(HISTORY_BY_ID[${idx}].raw, 'Raw transcript')">Copy raw (revert)</button>
+        ${changed ? `<button class="ghost" onclick="toggleDiff(${h.ts})">${isOpen ? "Hide changes" : "Show changes"}</button>` : ""}
+        <button class="ghost" onclick="addFromHistory()">Add term to dictionary…</button>
+      </div>
+      ${changed ? `<div class="diff${isOpen ? " open" : ""}"><div class="lbl">Raw → cleaned</div>${wordDiff(h.raw || "", h.cleaned || "")}</div>` : ""}
+    </div>`;
+  });
+  el.innerHTML = html;
+  window.HISTORY_BY_ID = items;
+}
+
+function toggleDiff(ts) {
+  if (openDiffs.has(ts)) openDiffs.delete(ts); else openDiffs.add(ts);
+  renderHistory(); // re-render from state so the open/closed set survives the 15s poll
+}
+
+function addFromHistory() {
+  // Reuses the same inline input+button as the manual "add term" flow above
+  // (was a native prompt() dialog — inconsistent with the rest of the page's
+  // form-control vocabulary, and unstyleable/inaccessible in the same way).
+  const sel = (window.getSelection() || "").toString().trim();
+  const input = document.getElementById("term-input");
+  input.value = sel;
+  input.scrollIntoView({behavior: "smooth", block: "center"});
+  input.focus();
+  if (sel) input.select();
+}
+
+function addTerm() {
+  const input = document.getElementById("term-input");
+  const term = input.value.trim();
+  if (!term) return;
+  input.value = "";
+  postTerm(term);
+}
+
+async function postTerm(term) {
+  const res = await fetch("/api/dictionary", {method: "POST", body: JSON.stringify({term})});
+  const data = await res.json();
+  if (data.terms) { TERMS = data.terms; renderChips(); renderStats(window.LATENCY || [], window.STATS || {}); toast(`"${term}" added — applies from your next dictation`); }
+}
+
+async function removeTerm(term) {
+  const res = await fetch("/api/dictionary/delete", {method: "POST", body: JSON.stringify({term})});
+  const data = await res.json();
+  if (data.terms) { TERMS = data.terms; renderChips(); renderStats(window.LATENCY || [], window.STATS || {}); toast(`"${term}" removed`); }
+}
+
+document.getElementById("term-input").addEventListener("keydown", e => { if (e.key === "Enter") addTerm(); });
+
+async function load() {
+  const [hist, lat, dict, stats] = await Promise.all([
+    fetch("/api/history").then(r => r.json()),
+    fetch("/api/latency").then(r => r.json()),
+    fetch("/api/dictionary").then(r => r.json()),
+    fetch("/api/stats").then(r => r.json()),
+  ]);
+  HISTORY = hist; TERMS = dict.terms || []; window.LATENCY = lat; window.STATS = stats;
+  renderStats(lat, stats); renderChips(); renderHistory();
+}
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>

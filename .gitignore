@@ -1,0 +1,29 @@
+spikes/m0_asr/venv/
+spikes/m0_asr/*.tar.bz2
+spikes/m0_asr/sherpa-onnx-*/
+spikes/m0_asr/*.wav
+spikes/streaming_zipformer/sherpa-onnx-*/
+models/
+src/sidecar/debug_audio/
+src/shell/target/
+target/
+node_modules/
+__pycache__/
+*.pyc
+dist/
+
+# Personal data — use personal_dictionary.json.example as template
+src/sidecar/personal_dictionary.json
+# Dictation history and latency logs (personal data)
+src/sidecar/history.jsonl
+src/sidecar/latency_log.jsonl
+
+# Debug logs
+*.log
+*.log.err
+
+# Windows filesystem artifact
+nul
+
+# Claude session files
+.claude/
